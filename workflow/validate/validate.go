@@ -640,9 +640,9 @@ func resolveAllVariables(scope map[string]interface{}, tmplStr string) error {
 				// NOTE: this is far from foolproof.
 			} else if strings.HasPrefix(tag, "workflow.outputs.parameters.") && allowAllWorkflowOutputParameterRefs {
 				// Allow runtime resolution of workflow output parameter names
-				// TODO: allow all global artifacts. Downside of it is that the some step can expect global artifacts
-				// but there is no validation that step which produce this global artifacts is executed before
-				// step which consume it.
+				// TODO: allow all global artifacts. The downside of it is that some step can expect global artifacts,
+				// but there is no validation that the step which produce this global artifacts
+				// is executed before the step which consume it.
 			} else if strings.HasPrefix(tag, "workflow.outputs.artifacts.") {
 				// Allow runtime resolution of workflow output artifact names
 			} else if strings.HasPrefix(tag, "outputs.") {
@@ -847,7 +847,6 @@ func (ctx *templateValidationCtx) validateSteps(scope map[string]interface{}, tm
 		if err != nil {
 			return errors.InternalWrapError(err)
 		}
-		//fmt.Println(string(stepBytes))
 
 		for _, step := range stepGroup.Steps {
 			aggregate := len(step.WithItems) > 0 || step.WithParam != ""
@@ -860,11 +859,9 @@ func (ctx *templateValidationCtx) validateSteps(scope map[string]interface{}, tm
 			}
 		}
 
+		// TODO: here we do not have a full scope and the global artifacts are not available
 		err = resolveAllVariables(scope, string(stepBytes))
 		if err != nil {
-			fmt.Println("-----")
-			fmt.Println(scope)
-
 			return errors.Errorf(errors.CodeBadRequest, "templates.%s.steps %s", tmpl.Name, err.Error())
 		}
 
