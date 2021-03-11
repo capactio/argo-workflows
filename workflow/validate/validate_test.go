@@ -479,6 +479,68 @@ func TestStepArtReference(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+
+
+var stepArtReferences1 = `
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: step-art-ref-
+spec:
+  entrypoint: stepref
+  templates:
+  - name: generate
+    container:
+      image: alpine:3.7
+      command: [echo, generate]
+    outputs:
+      artifacts:
+      - name: generated_hosts
+        path: /etc/hosts
+
+  - name: echo
+    inputs:
+      parameters:
+      - name: message
+      artifacts:
+      - name: passthrough
+        path: /tmp/passthrough
+    container:
+      image: alpine:3.7
+      command: [echo, "{{inputs.parameters.message}}"]
+    outputs:
+      parameters:
+      - name: hosts
+        valueFrom:
+          path: /etc/hosts
+      artifacts:
+      - name: someoutput
+        path: /tmp/passthrough
+  - name: stepref
+    steps:
+    - - name: test
+        template: stepref1
+  - name: stepref1
+    steps:
+    - - name: one
+        template: generate
+    - - name: two
+        template: echo
+        arguments:
+          parameters:
+          - name: message
+            value: val
+          artifacts:
+          - name: passthrough
+            from: "{{steps.one.outputs.artifacts.generated_hosts1111}}"
+`
+
+func TestStepArtReference1(t *testing.T) {
+	_, err := validate(stepArtReferences1)
+	assert.NoError(t, err)
+}
+
+
 var unsatisfiedParam = `
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
