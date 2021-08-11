@@ -538,7 +538,7 @@ func resolveAllVariables(scope map[string]interface{}, tmplStr string) error {
 	var unresolvedErr error
 	_, allowAllItemRefs := scope[anyItemMagicValue] // 'item.*' is a magic placeholder value set by addItemsToScope
 	_, allowAllWorkflowOutputParameterRefs := scope[anyWorkflowOutputParameterMagicValue]
-	_, allowAllWorkflowOutputArtifactRefs := scope[anyWorkflowOutputArtifactMagicValue]
+	//_, allowAllWorkflowOutputArtifactRefs := scope[anyWorkflowOutputArtifactMagicValue]
 	fstTmpl, err := fasttemplate.NewTemplate(tmplStr, "{{", "}}")
 	if err != nil {
 		return fmt.Errorf("unable to parse argo variable: %w", err)
@@ -556,7 +556,11 @@ func resolveAllVariables(scope map[string]interface{}, tmplStr string) error {
 				// NOTE: this is far from foolproof.
 			} else if strings.HasPrefix(tag, "workflow.outputs.parameters.") && allowAllWorkflowOutputParameterRefs {
 				// Allow runtime resolution of workflow output parameter names
-			} else if strings.HasPrefix(tag, "workflow.outputs.artifacts.") && allowAllWorkflowOutputArtifactRefs {
+
+				// TODO: allow all global artifacts. The downside of it is that some step can expect global artifacts,
+				// but there is no validation that the step which produce this global artifacts
+				// is executed before the step which consume it.
+			} else if strings.HasPrefix(tag, "workflow.outputs.artifacts.") {
 				// Allow runtime resolution of workflow output artifact names
 			} else if strings.HasPrefix(tag, "outputs.") {
 				// We are self referencing for metric emission, allow it.
@@ -762,10 +766,6 @@ func (ctx *templateValidationCtx) validateSteps(scope map[string]interface{}, tm
 		if err != nil {
 			return errors.InternalWrapError(err)
 		}
-		err = resolveAllVariables(scope, string(stepBytes))
-		if err != nil {
-			return errors.Errorf(errors.CodeBadRequest, "templates.%s.steps %s", tmpl.Name, err.Error())
-		}
 
 		for _, step := range stepGroup.Steps {
 			aggregate := len(step.WithItems) > 0 || step.WithParam != ""
@@ -777,6 +777,11 @@ func (ctx *templateValidationCtx) validateSteps(scope map[string]interface{}, tm
 			if err != nil {
 				return errors.Errorf(errors.CodeBadRequest, "templates.%s.steps[%d].%s %s", tmpl.Name, i, step.Name, err.Error())
 			}
+		}
+
+		err = resolveAllVariables(scope, string(stepBytes))
+		if err != nil {
+			return errors.Errorf(errors.CodeBadRequest, "templates.%s.steps %s", tmpl.Name, err.Error())
 		}
 	}
 	return nil
